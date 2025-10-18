@@ -24,7 +24,7 @@ export default function Home() {
       // Navigate to product page
       router.push(`/product/${barcode}`);
     },
-    []
+    [router]
   );
 
   const handleSearch = useCallback(async (query: string) => {

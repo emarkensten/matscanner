@@ -46,7 +46,6 @@ interface SearchResult {
 }
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-const API_BASE_URL = 'https://world.openfoodfacts.org/api/v2';
 
 function getCache(key: string): Product | null {
   if (typeof window === 'undefined') return null;

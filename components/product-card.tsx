@@ -15,12 +15,14 @@ interface ProductCardProps {
   product: Product;
   onCompare?: (product: Product) => void;
   isInComparison?: boolean;
+  onClose?: () => void;
 }
 
 export function ProductCard({
   product,
   onCompare,
   isInComparison = false,
+  onClose,
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -213,11 +215,17 @@ export function ProductCard({
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
-          <Link href="/" className="flex-1">
-            <Button variant="outline" className="w-full">
-              Scanna ny
+          {onClose ? (
+            <Button onClick={onClose} variant="outline" className="flex-1">
+              Stäng
             </Button>
-          </Link>
+          ) : (
+            <Link href="/" className="flex-1">
+              <Button variant="outline" className="w-full">
+                Scanna ny
+              </Button>
+            </Link>
+          )}
           {onCompare && (
             <Button
               onClick={() => onCompare(product)}

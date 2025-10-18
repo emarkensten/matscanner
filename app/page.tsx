@@ -1,30 +1,51 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Scanner } from '@/components/scanner';
 import { SearchBar } from '@/components/search-bar';
-import { searchByTerm, Product } from '@/lib/api/openfoodfacts';
+import { ProductCard } from '@/components/product-card';
+import { searchByTerm, searchByBarcode, Product } from '@/lib/api/openfoodfacts';
 
 export default function Home() {
-  const router = useRouter();
   const [scannerActive, setScannerActive] = useState(false);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loadingProduct, setLoadingProduct] = useState(false);
 
   const handleScan = useCallback(
-    (barcode: string) => {
+    async (barcode: string) => {
       setScannerActive(false);
       setSearchError(null);
-      // Navigate to product page
-      router.push(`/product/${barcode}`);
+      setLoadingProduct(true);
+
+      try {
+        const product = await searchByBarcode(barcode);
+        if (product) {
+          setSelectedProduct(product);
+          setDrawerOpen(true);
+        } else {
+          setSearchError('Produkt inte funnen. Försök igen.');
+        }
+      } catch (error) {
+        setSearchError('Kunde inte hämta produktdata.');
+      } finally {
+        setLoadingProduct(false);
+      }
     },
-    [router]
+    []
   );
 
   const handleSearch = useCallback(async (query: string) => {
@@ -47,8 +68,9 @@ export default function Home() {
     }
   }, []);
 
-  const handleSelectProduct = (barcode: string) => {
-    router.push(`/product/${barcode}`);
+  const handleSelectProduct = async (product: Product) => {
+    setSelectedProduct(product);
+    setDrawerOpen(true);
   };
 
   return (
@@ -125,7 +147,7 @@ export default function Home() {
                   {searchResults.map((product) => (
                     <button
                       key={product.barcode}
-                      onClick={() => handleSelectProduct(product.barcode)}
+                      onClick={() => handleSelectProduct(product)}
                       className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-green-50 hover:border-green-300 transition-colors"
                     >
                       <p className="font-medium text-gray-900">{product.name}</p>
@@ -195,6 +217,27 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Product Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle>Produktinformation</DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-8">
+            {loadingProduct ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-gray-600">Laddar produkt...</p>
+              </div>
+            ) : selectedProduct ? (
+              <ProductCard
+                product={selectedProduct}
+                onClose={() => setDrawerOpen(false)}
+              />
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

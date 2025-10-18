@@ -148,18 +148,6 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
         )}
       </div>
 
-      <style jsx global>{`
-        #interactive {
-          width: 100% !important;
-        }
-        #interactive video,
-        #interactive canvas {
-          width: 100% !important;
-          height: auto !important;
-          max-width: 100% !important;
-        }
-      `}</style>
-
       <Alert className="bg-blue-50 border-blue-200">
         <AlertDescription className="text-blue-900 text-center">
           Rikta kameran mot streckkoden eller ange den manuellt

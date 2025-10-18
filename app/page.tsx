@@ -1,103 +1,199 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Scanner } from '@/components/scanner';
+import { SearchBar } from '@/components/search-bar';
+import { searchByTerm, Product } from '@/lib/api/openfoodfacts';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const [scannerActive, setScannerActive] = useState(false);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleScan = useCallback(
+    (barcode: string) => {
+      setScannerActive(false);
+      // Navigate to product page
+      router.push(`/product/${barcode}`);
+    },
+    [router]
+  );
+
+  const handleSearch = useCallback(async (query: string) => {
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const results = await searchByTerm(query);
+      if (results.length === 0) {
+        setSearchError('Inga produkter hittades. Försök med en annan sökning.');
+      } else {
+        setSearchResults(results);
+      }
+    } catch (error) {
+      setSearchError('Sökningen misslyckades. Försök igen senare.');
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const handleSelectProduct = (barcode: string) => {
+    router.push(`/product/${barcode}`);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+      <div className="container mx-auto max-w-2xl px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-green-900 mb-2">Matscanner</h1>
+          <p className="text-gray-600">Klimatsmart matkoll</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Scanner Section */}
+        {!showSearch ? (
+          <Card className="mb-6">
+            <CardHeader className="text-center">
+              <CardTitle>Scanna streckkod</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!scannerActive ? (
+                <Button
+                  onClick={() => setScannerActive(true)}
+                  size="lg"
+                  className="w-full h-16 text-lg bg-green-600 hover:bg-green-700"
+                >
+                  Starta kamera
+                </Button>
+              ) : (
+                <Scanner
+                  onScan={handleScan}
+                  isActive={scannerActive}
+                />
+              )}
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">eller</span>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => setShowSearch(true)}
+                variant="outline"
+                size="lg"
+                className="w-full"
+              >
+                Sök manuellt
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Sök efter produkt</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <SearchBar onSearch={handleSearch} isLoading={isSearching} />
+
+              {searchError && (
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertDescription className="text-red-900">
+                    {searchError}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-semibold text-sm text-gray-700">
+                    Sökresultat ({searchResults.length})
+                  </p>
+                  {searchResults.map((product) => (
+                    <button
+                      key={product.barcode}
+                      onClick={() => handleSelectProduct(product.barcode)}
+                      className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-green-50 hover:border-green-300 transition-colors"
+                    >
+                      <p className="font-medium text-gray-900">{product.name}</p>
+                      <p className="text-sm text-gray-600">{product.brand}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                onClick={() => setShowSearch(false)}
+                variant="outline"
+                className="w-full"
+              >
+                Tillbaka
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Info Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Om Eco-Score</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-gray-700">
+              Eco-Score är ett miljöbetyg för matvaror från A (bäst) till E
+              (sämst). Det baseras på miljöpåverkan under produktionens hela
+              livscykel.
+            </p>
+            <div className="grid grid-cols-5 gap-2">
+              <div className="text-center">
+                <div className="w-full h-10 bg-green-600 rounded flex items-center justify-center text-white font-bold mb-1">
+                  A
+                </div>
+                <p className="text-xs text-gray-600">Bäst</p>
+              </div>
+              <div className="text-center">
+                <div
+                  className="w-full h-10 rounded flex items-center justify-center text-white font-bold mb-1"
+                  style={{ backgroundColor: '#55CC33' }}
+                >
+                  B
+                </div>
+                <p className="text-xs text-gray-600">Bra</p>
+              </div>
+              <div className="text-center">
+                <div className="w-full h-10 bg-yellow-400 rounded flex items-center justify-center text-black font-bold mb-1">
+                  C
+                </div>
+                <p className="text-xs text-gray-600">Medel</p>
+              </div>
+              <div className="text-center">
+                <div className="w-full h-10 bg-orange-500 rounded flex items-center justify-center text-white font-bold mb-1">
+                  D
+                </div>
+                <p className="text-xs text-gray-600">Dålig</p>
+              </div>
+              <div className="text-center">
+                <div className="w-full h-10 bg-red-600 rounded flex items-center justify-center text-white font-bold mb-1">
+                  E
+                </div>
+                <p className="text-xs text-gray-600">Sämst</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

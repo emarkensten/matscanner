@@ -39,7 +39,7 @@ export default function Home() {
         } else {
           setSearchError('Produkt inte funnen. Försök igen.');
         }
-      } catch (error) {
+      } catch {
         setSearchError('Kunde inte hämta produktdata.');
       } finally {
         setLoadingProduct(false);

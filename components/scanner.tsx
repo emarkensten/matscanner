@@ -65,7 +65,7 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
             numOfWorkers: 4,
             frequency: 10,
           },
-          (err: any) => {
+          (err: Error | null) => {
             if (err) {
               console.error('Quagga init error:', err);
               setError('Kunde inte starta scannern. Försök igen.');
@@ -78,7 +78,7 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
           }
         );
 
-        Quagga.onDetected((result: any) => {
+        Quagga.onDetected((result: { codeResult: { code: string } }) => {
           if (hasScannedRef.current) return;
 
           const code = result.codeResult.code;

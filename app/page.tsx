@@ -20,10 +20,11 @@ export default function Home() {
   const handleScan = useCallback(
     (barcode: string) => {
       setScannerActive(false);
+      setSearchError(null);
       // Navigate to product page
       router.push(`/product/${barcode}`);
     },
-    [router]
+    []
   );
 
   const handleSearch = useCallback(async (query: string) => {

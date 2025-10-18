@@ -108,7 +108,7 @@ export async function searchByBarcode(barcode: string): Promise<Product | null> 
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/product/${barcode}.json`
+      `https://world.openfoodfacts.org/api/v3/product/${barcode}`
     );
 
     if (!response.ok) {
@@ -118,7 +118,8 @@ export async function searchByBarcode(barcode: string): Promise<Product | null> 
 
     const data = await response.json();
 
-    if (data.status !== 1 || !data.product) {
+    // V3 API returns { product: {...}, status: "success" }
+    if (!data.product) {
       return null;
     }
 
@@ -139,7 +140,7 @@ export async function searchByTerm(
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/cgi/search.pl?search_terms=${encodeURIComponent(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
         query
       )}&json=1&page_size=${pageSize}`
     );

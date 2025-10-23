@@ -13,7 +13,7 @@ import {
 import { Scanner } from '@/components/scanner';
 import { SearchBar } from '@/components/search-bar';
 import { ProductCard } from '@/components/product-card';
-import { searchByTerm, searchByBarcode, Product } from '@/lib/api/openfoodfacts';
+import { searchByTerm, searchByBarcode, enrichProductWithSwedishData, Product } from '@/lib/api/openfoodfacts';
 
 export default function Home() {
   const [scannerActive, setScannerActive] = useState(false);
@@ -69,8 +69,20 @@ export default function Home() {
   }, []);
 
   const handleSelectProduct = async (product: Product) => {
-    setSelectedProduct(product);
     setDrawerOpen(true);
+    setLoadingProduct(true);
+    setSelectedProduct(product);
+
+    // Lazy load Swedish nutrition data when product is opened
+    try {
+      const enrichedProduct = await enrichProductWithSwedishData(product);
+      setSelectedProduct(enrichedProduct);
+    } catch (error) {
+      console.error('Failed to enrich product with Swedish data:', error);
+      // Keep original product if enrichment fails
+    } finally {
+      setLoadingProduct(false);
+    }
   };
 
   return (

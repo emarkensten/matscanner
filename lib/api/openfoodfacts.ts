@@ -148,9 +148,13 @@ async function enrichWithSwedishData(product: Product): Promise<Product> {
       vitamin_d_100g: swedishData.vitamin_d_ug ? swedishData.vitamin_d_ug / 1000000 : product.nutriments?.vitamin_d_100g,
     };
 
+    // Use Swedish ingredients list if available and Open Food Facts doesn't have it
+    const ingredientsText = product.ingredients_text || swedishData.ingredients_list;
+
     return {
       ...product,
       nutriments: enrichedNutriments,
+      ingredients_text: ingredientsText,
       swedish_nutrition: swedishData,
       data_source: 'combined',
     };
@@ -217,22 +221,25 @@ export async function searchByTerm(
       return [];
     }
 
+    // Return products immediately without enriching
+    // Swedish data will be loaded lazily when product is opened
     const products = data.products
       .slice(0, 5) // Limit to top 5 results
       .map((raw) => normalizeProduct(raw, raw.code || raw.barcode || ''))
       .filter((p) => p.barcode); // Only include products with barcode
 
-    // Enrich each product with Swedish data
-    // Note: We do this sequentially to avoid rate limiting
-    const enrichedProducts: Product[] = [];
-    for (const product of products) {
-      const enriched = await enrichWithSwedishData(product);
-      enrichedProducts.push(enriched);
-    }
-
-    return enrichedProducts;
+    return products;
   } catch (error) {
     console.error('Failed to search products:', error);
     throw error;
   }
+}
+
+/**
+ * Enrich a product with Swedish data (public function for lazy loading)
+ * @param product Product to enrich
+ * @returns Enriched product with Swedish nutrition data
+ */
+export async function enrichProductWithSwedishData(product: Product): Promise<Product> {
+  return enrichWithSwedishData(product);
 }

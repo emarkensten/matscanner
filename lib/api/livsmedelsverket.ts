@@ -44,6 +44,15 @@ export interface NutritionValue {
   euroFIRkod?: string; // Euro FIR code
 }
 
+export interface RawMaterial {
+  namn: string; // Name of raw material
+  foodEx2?: string; // FoodEx2 code
+  tillagning?: string; // Preparation method
+  andel: number; // Percentage/share
+  faktor?: number; // Factor
+  omraknadTillRa?: number; // Calculated to raw
+}
+
 export interface SwedishNutritionData {
   foodId: number;
   foodName: string;
@@ -60,6 +69,8 @@ export interface SwedishNutritionData {
   iron_mg?: number;
   vitamin_c_mg?: number;
   vitamin_d_ug?: number;
+  ingredients_list?: string; // Formatted ingredients from råvaror
+  raw_materials?: RawMaterial[]; // Raw materials data
 }
 
 /**
@@ -145,17 +156,39 @@ export async function getSwedishNutrition(
       }
     );
 
-    clearTimeout(timeoutId);
-
     if (!nutritionResponse.ok) {
+      clearTimeout(timeoutId);
       console.warn(`Livsmedelsverket nutrition API returned status ${nutritionResponse.status}`);
       return null;
     }
 
     const nutritionData: NutritionValue[] = await nutritionResponse.json();
 
+    // Fetch raw materials (råvaror) for composite products
+    let rawMaterials: RawMaterial[] = [];
+    try {
+      const rawMaterialsResponse = await fetch(
+        `${API_BASE_URL}/livsmedel/${foodId}/ravaror`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        }
+      );
+
+      if (rawMaterialsResponse.ok) {
+        rawMaterials = await rawMaterialsResponse.json();
+      }
+    } catch (error) {
+      // Silently fail - raw materials are optional
+      console.log('No raw materials available for this product');
+    }
+
+    clearTimeout(timeoutId);
+
     // Normalize nutrition data
-    return normalizeNutritionData(foodData, nutritionData);
+    return normalizeNutritionData(foodData, nutritionData, rawMaterials);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn('Livsmedelsverket API timeout');
@@ -167,11 +200,34 @@ export async function getSwedishNutrition(
 }
 
 /**
+ * Format raw materials into an ingredients list
+ * @param rawMaterials Array of raw materials with percentages
+ * @returns Formatted string like "Potatis (48%), Mjölk (35%), ..."
+ */
+function formatIngredientsFromRawMaterials(rawMaterials: RawMaterial[]): string {
+  if (!rawMaterials || rawMaterials.length === 0) {
+    return '';
+  }
+
+  // Sort by percentage (descending)
+  const sorted = [...rawMaterials].sort((a, b) => b.andel - a.andel);
+
+  // Format as "Ingredient (X%)"
+  const formatted = sorted.map((rm) => {
+    const percentage = rm.andel > 0 ? ` (${rm.andel}%)` : '';
+    return `${rm.namn}${percentage}`;
+  });
+
+  return formatted.join(', ');
+}
+
+/**
  * Normalize Livsmedelsverket nutrition data to our standard format
  */
 function normalizeNutritionData(
   food: LivsmedelsverketFood,
-  nutrients: NutritionValue[]
+  nutrients: NutritionValue[],
+  rawMaterials: RawMaterial[] = []
 ): SwedishNutritionData {
   const findNutrient = (names: string[]): number | undefined => {
     for (const name of names) {
@@ -183,6 +239,9 @@ function normalizeNutritionData(
     }
     return undefined;
   };
+
+  // Format ingredients list from raw materials
+  const ingredientsList = formatIngredientsFromRawMaterials(rawMaterials);
 
   return {
     foodId: food.nummer,
@@ -200,7 +259,62 @@ function normalizeNutritionData(
     iron_mg: findNutrient(['järn', 'fe']),
     vitamin_c_mg: findNutrient(['vitamin c', 'vitc', 'askorbinsyra']),
     vitamin_d_ug: findNutrient(['vitamin d', 'vitd']),
+    ingredients_list: ingredientsList || undefined,
+    raw_materials: rawMaterials.length > 0 ? rawMaterials : undefined,
   };
+}
+
+/**
+ * Extract food type from product name by removing brand names and extras
+ */
+function extractFoodType(productName: string): string[] {
+  const name = productName.toLowerCase();
+
+  // Common Swedish brand names to remove
+  const brands = [
+    'arla', 'oatly', 'valio', 'skånemejerier', 'norrmejerier',
+    'falköping', 'coop', 'ica', 'kungsörnen', 'fazer', 'pågen',
+    'barilla', 'felix', 'abba', 'findus', 'scan', 'garant',
+    'eldorado', 'first price', 'reko', 'arvid nordqvist'
+  ];
+
+  // Remove brand names
+  let cleanName = name;
+  brands.forEach(brand => {
+    cleanName = cleanName.replace(new RegExp(`\\b${brand}\\b`, 'gi'), '');
+  });
+
+  // Remove common noise words
+  cleanName = cleanName
+    .replace(/\d+\s*(ml|l|g|kg|st|pack|%)/gi, '') // Sizes and percentages
+    .replace(/\b(ekologisk|organic|eko|lchf|laktos|fett|mellan|standard)\b/gi, '')
+    .replace(/\b(svensk|svenskt|svenska|smak|original|classic|extra)\b/gi, '')
+    .trim();
+
+  // Split into words and filter out very short ones
+  const words = cleanName
+    .split(/\s+/)
+    .filter(word => word.length > 2);
+
+  // Return multiple search terms to try
+  const searchTerms: string[] = [];
+
+  // Try full cleaned name
+  if (words.length > 0) {
+    searchTerms.push(words.join(' '));
+  }
+
+  // Try first significant word (often the main food type)
+  if (words.length > 0) {
+    searchTerms.push(words[0]);
+  }
+
+  // Try last word (sometimes the type is at the end)
+  if (words.length > 1) {
+    searchTerms.push(words[words.length - 1]);
+  }
+
+  return searchTerms;
 }
 
 /**
@@ -212,25 +326,21 @@ export async function findSwedishNutrition(
   productName: string
 ): Promise<SwedishNutritionData | null> {
   try {
-    // Extract main food type from product name
-    // Remove brand names, sizes, and common words
-    const cleanName = productName
-      .toLowerCase()
-      .replace(/\d+\s*(ml|l|g|kg|st|pack)/gi, '') // Remove sizes
-      .replace(/ekologisk|organic|eko/gi, '') // Remove organic labels
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2) // Take first 2 words
-      .join(' ');
+    const searchTerms = extractFoodType(productName);
 
-    const results = await searchSwedishFood(cleanName);
+    // Try each search term until we find a match
+    for (const term of searchTerms) {
+      if (!term) continue;
 
-    if (results.length === 0) {
-      return null;
+      const results = await searchSwedishFood(term);
+
+      if (results.length > 0) {
+        // Get nutrition data for the best match (first result)
+        return await getSwedishNutrition(results[0].nummer);
+      }
     }
 
-    // Get nutrition data for the best match (first result)
-    return await getSwedishNutrition(results[0].nummer);
+    return null;
   } catch (error) {
     console.error('Error finding Swedish nutrition:', error);
     return null;

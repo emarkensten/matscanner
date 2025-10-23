@@ -84,27 +84,40 @@ export function ProductCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Eco-Score Details */}
-        <div className="space-y-2">
-          <EcoScoreBadge
-            grade={product.ecoscore_grade}
-            score={product.ecoscore_score}
-          />
-        </div>
-
-        <Separator />
+        {/* Eco-Score Details - only show if grade exists */}
+        {product.ecoscore_grade && (
+          <>
+            <div className="space-y-2">
+              <EcoScoreBadge
+                grade={product.ecoscore_grade}
+                score={product.ecoscore_score}
+              />
+            </div>
+            <Separator />
+          </>
+        )}
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Översikt</TabsTrigger>
             <TabsTrigger value="nutrition">Näring</TabsTrigger>
-            <TabsTrigger value="ingredients">Ingredienser</TabsTrigger>
+            <TabsTrigger value="ingredients">Innehåll</TabsTrigger>
             <TabsTrigger value="environment">Miljö</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-3">
+            {/* Product Info */}
+            <div>
+              <p className="font-semibold text-sm text-gray-700 mb-1">Produkt</p>
+              <p className="text-sm text-gray-700">{product.name}</p>
+              {product.brand && (
+                <p className="text-sm text-gray-600 mt-1">Märke: {product.brand}</p>
+              )}
+            </div>
+
+            {/* Allergens */}
             {product.allergens && (
               <div>
                 <p className="font-semibold text-sm text-gray-700 mb-1">
@@ -113,12 +126,16 @@ export function ProductCard({
                 <p className="text-sm text-gray-600">{product.allergens}</p>
               </div>
             )}
-            {product.packaging && (
-              <div>
-                <p className="font-semibold text-sm text-gray-700 mb-1">
-                  Förpackning
+
+            {/* Swedish nutrition source */}
+            {product.swedish_nutrition && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-xs text-blue-700 font-medium mb-1">
+                  Berikad med svensk näringsdata
                 </p>
-                <p className="text-sm text-gray-600">{product.packaging}</p>
+                <p className="text-xs text-blue-600">
+                  Baserat på: {product.swedish_nutrition.foodName}
+                </p>
               </div>
             )}
           </TabsContent>
@@ -263,26 +280,66 @@ export function ProductCard({
           {/* Ingredients Tab */}
           <TabsContent value="ingredients" className="space-y-3">
             {product.ingredients_text ? (
-              <p className="text-sm text-gray-700 leading-relaxed">
-                {product.ingredients_text}
-              </p>
+              <>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {product.ingredients_text}
+                </p>
+
+                {/* Show source if ingredients come from Swedish data */}
+                {product.swedish_nutrition?.ingredients_list && (
+                  <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-100">
+                    <p className="text-xs text-blue-600">
+                      Råvaror från Livsmedelsverkets databas
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-sm text-gray-600">Ingredienser ej tillgängliga</p>
             )}
           </TabsContent>
 
           {/* Environment Tab */}
-          <TabsContent value="environment" className="space-y-3">
-            {product.carbon_footprint ? (
+          <TabsContent value="environment" className="space-y-4">
+            {/* Eco-Score */}
+            {product.ecoscore_grade && (
+              <div>
+                <p className="font-semibold text-sm text-gray-700 mb-2">
+                  Miljöpåverkan
+                </p>
+                <EcoScoreBadge
+                  grade={product.ecoscore_grade}
+                  score={product.ecoscore_score}
+                />
+              </div>
+            )}
+
+            {/* Packaging */}
+            {product.packaging && (
               <div>
                 <p className="font-semibold text-sm text-gray-700 mb-1">
-                  Koldioxidutsläpp
+                  Förpackning
+                </p>
+                <p className="text-sm text-gray-600">
+                  {product.packaging}
+                </p>
+              </div>
+            )}
+
+            {/* Carbon Footprint (rarely available) */}
+            {product.carbon_footprint && (
+              <div>
+                <p className="font-semibold text-sm text-gray-700 mb-1">
+                  Koldioxidavtryck
                 </p>
                 <p className="text-sm text-gray-600">
                   {product.carbon_footprint} g CO2
                 </p>
               </div>
-            ) : (
+            )}
+
+            {/* Show message if no environmental data */}
+            {!product.ecoscore_grade && !product.packaging && !product.carbon_footprint && (
               <p className="text-sm text-gray-600">
                 Miljödata ej tillgänglig
               </p>

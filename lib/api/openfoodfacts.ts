@@ -1,3 +1,5 @@
+import { findSwedishNutrition, SwedishNutritionData } from './livsmedelsverket';
+
 export interface Nutriments {
   energy_100g?: number;
   proteins_100g?: number;
@@ -6,6 +8,11 @@ export interface Nutriments {
   sugars_100g?: number;
   salt_100g?: number;
   fiber_100g?: number;
+  saturated_fat_100g?: number;
+  calcium_100g?: number;
+  iron_100g?: number;
+  vitamin_c_100g?: number;
+  vitamin_d_100g?: number;
 }
 
 export interface Product {
@@ -21,6 +28,8 @@ export interface Product {
   allergens?: string;
   carbon_footprint?: string;
   packaging?: string;
+  swedish_nutrition?: SwedishNutritionData; // Swedish nutrition data from Livsmedelsverket
+  data_source?: 'openfoodfacts' | 'swedish' | 'combined';
 }
 
 interface OpenFoodFactsProduct {
@@ -93,12 +102,62 @@ function normalizeProduct(
       sugars_100g: raw.nutriments?.sugars_100g as number,
       salt_100g: raw.nutriments?.salt_100g as number,
       fiber_100g: raw.nutriments?.fiber_100g as number,
+      saturated_fat_100g: raw.nutriments?.['saturated-fat_100g'] as number,
+      calcium_100g: raw.nutriments?.calcium_100g as number,
+      iron_100g: raw.nutriments?.iron_100g as number,
+      vitamin_c_100g: raw.nutriments?.['vitamin-c_100g'] as number,
+      vitamin_d_100g: raw.nutriments?.['vitamin-d_100g'] as number,
     },
     ingredients_text: raw.ingredients_text_sv || raw.ingredients_text,
     allergens: raw.allergens,
     carbon_footprint: raw.carbon_footprint_from_known_ingredients_product?.toString(),
     packaging: raw.packaging,
+    data_source: 'openfoodfacts',
   };
+}
+
+/**
+ * Enrich product with Swedish nutrition data from Livsmedelsverket
+ * This combines data from both Open Food Facts and Livsmedelsverket
+ */
+async function enrichWithSwedishData(product: Product): Promise<Product> {
+  try {
+    const swedishData = await findSwedishNutrition(product.name);
+
+    if (!swedishData) {
+      return product;
+    }
+
+    // Merge Swedish nutrition data with existing nutriments
+    // Swedish data is prioritized for Swedish products
+    const enrichedNutriments: Nutriments = {
+      ...product.nutriments,
+      // Convert Swedish data (per 100g) to match our format
+      energy_100g: swedishData.energy_kcal || product.nutriments?.energy_100g,
+      proteins_100g: swedishData.protein_g || product.nutriments?.proteins_100g,
+      fat_100g: swedishData.fat_g || product.nutriments?.fat_100g,
+      carbohydrates_100g: swedishData.carbs_g || product.nutriments?.carbohydrates_100g,
+      sugars_100g: swedishData.sugar_g || product.nutriments?.sugars_100g,
+      salt_100g: swedishData.salt_g || product.nutriments?.salt_100g,
+      fiber_100g: swedishData.fiber_g || product.nutriments?.fiber_100g,
+      saturated_fat_100g: swedishData.saturated_fat_g || product.nutriments?.saturated_fat_100g,
+      // Additional nutrients from Swedish data
+      calcium_100g: swedishData.calcium_mg ? swedishData.calcium_mg / 1000 : product.nutriments?.calcium_100g,
+      iron_100g: swedishData.iron_mg ? swedishData.iron_mg / 1000 : product.nutriments?.iron_100g,
+      vitamin_c_100g: swedishData.vitamin_c_mg ? swedishData.vitamin_c_mg / 1000 : product.nutriments?.vitamin_c_100g,
+      vitamin_d_100g: swedishData.vitamin_d_ug ? swedishData.vitamin_d_ug / 1000000 : product.nutriments?.vitamin_d_100g,
+    };
+
+    return {
+      ...product,
+      nutriments: enrichedNutriments,
+      swedish_nutrition: swedishData,
+      data_source: 'combined',
+    };
+  } catch (error) {
+    console.error('Error enriching with Swedish data:', error);
+    return product;
+  }
 }
 
 export async function searchByBarcode(barcode: string): Promise<Product | null> {
@@ -122,7 +181,11 @@ export async function searchByBarcode(barcode: string): Promise<Product | null> 
       return null;
     }
 
-    const product = normalizeProduct(data.product, barcode);
+    let product = normalizeProduct(data.product, barcode);
+
+    // Enrich with Swedish nutrition data
+    product = await enrichWithSwedishData(product);
+
     setCache(barcode, product);
     return product;
   } catch (error) {
@@ -154,10 +217,20 @@ export async function searchByTerm(
       return [];
     }
 
-    return data.products
+    const products = data.products
       .slice(0, 5) // Limit to top 5 results
       .map((raw) => normalizeProduct(raw, raw.code || raw.barcode || ''))
       .filter((p) => p.barcode); // Only include products with barcode
+
+    // Enrich each product with Swedish data
+    // Note: We do this sequentially to avoid rate limiting
+    const enrichedProducts: Product[] = [];
+    for (const product of products) {
+      const enriched = await enrichWithSwedishData(product);
+      enrichedProducts.push(enriched);
+    }
+
+    return enrichedProducts;
   } catch (error) {
     console.error('Failed to search products:', error);
     throw error;

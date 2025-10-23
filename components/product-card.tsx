@@ -125,13 +125,30 @@ export function ProductCard({
 
           {/* Nutrition Tab */}
           <TabsContent value="nutrition" className="space-y-3">
+            {/* Data Source Badge */}
+            {product.data_source && (
+              <div className="flex items-center gap-2 mb-2">
+                {product.data_source === 'combined' && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200">
+                    Svensk näringsdata från Livsmedelsverket
+                  </Badge>
+                )}
+                {product.data_source === 'openfoodfacts' && (
+                  <Badge variant="outline" className="text-xs">
+                    Data från Open Food Facts
+                  </Badge>
+                )}
+              </div>
+            )}
+
             {product.nutriments ? (
               <div className="grid grid-cols-2 gap-3">
+                {/* Macronutrients */}
                 {product.nutriments.energy_100g !== undefined && (
                   <div className="bg-gray-50 p-3 rounded">
                     <p className="text-xs text-gray-600">Energi</p>
                     <p className="font-semibold">
-                      {product.nutriments.energy_100g} kcal
+                      {Math.round(product.nutriments.energy_100g)} kcal
                     </p>
                   </div>
                 )}
@@ -139,7 +156,7 @@ export function ProductCard({
                   <div className="bg-gray-50 p-3 rounded">
                     <p className="text-xs text-gray-600">Protein</p>
                     <p className="font-semibold">
-                      {product.nutriments.proteins_100g}g
+                      {product.nutriments.proteins_100g.toFixed(1)}g
                     </p>
                   </div>
                 )}
@@ -147,7 +164,15 @@ export function ProductCard({
                   <div className="bg-gray-50 p-3 rounded">
                     <p className="text-xs text-gray-600">Fett</p>
                     <p className="font-semibold">
-                      {product.nutriments.fat_100g}g
+                      {product.nutriments.fat_100g.toFixed(1)}g
+                    </p>
+                  </div>
+                )}
+                {product.nutriments.saturated_fat_100g !== undefined && (
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-xs text-gray-600">- varav mättat</p>
+                    <p className="font-semibold">
+                      {product.nutriments.saturated_fat_100g.toFixed(1)}g
                     </p>
                   </div>
                 )}
@@ -155,15 +180,23 @@ export function ProductCard({
                   <div className="bg-gray-50 p-3 rounded">
                     <p className="text-xs text-gray-600">Kolhydrater</p>
                     <p className="font-semibold">
-                      {product.nutriments.carbohydrates_100g}g
+                      {product.nutriments.carbohydrates_100g.toFixed(1)}g
                     </p>
                   </div>
                 )}
                 {product.nutriments.sugars_100g !== undefined && (
                   <div className="bg-gray-50 p-3 rounded">
-                    <p className="text-xs text-gray-600">Socker</p>
+                    <p className="text-xs text-gray-600">- varav socker</p>
                     <p className="font-semibold">
-                      {product.nutriments.sugars_100g}g
+                      {product.nutriments.sugars_100g.toFixed(1)}g
+                    </p>
+                  </div>
+                )}
+                {product.nutriments.fiber_100g !== undefined && (
+                  <div className="bg-gray-50 p-3 rounded">
+                    <p className="text-xs text-gray-600">Fiber</p>
+                    <p className="font-semibold">
+                      {product.nutriments.fiber_100g.toFixed(1)}g
                     </p>
                   </div>
                 )}
@@ -171,13 +204,59 @@ export function ProductCard({
                   <div className="bg-gray-50 p-3 rounded">
                     <p className="text-xs text-gray-600">Salt</p>
                     <p className="font-semibold">
-                      {product.nutriments.salt_100g}g
+                      {product.nutriments.salt_100g.toFixed(1)}g
+                    </p>
+                  </div>
+                )}
+
+                {/* Vitamins and Minerals - Swedish data */}
+                {product.nutriments.calcium_100g !== undefined && product.nutriments.calcium_100g > 0 && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <p className="text-xs text-blue-600">Kalcium</p>
+                    <p className="font-semibold">
+                      {(product.nutriments.calcium_100g * 1000).toFixed(0)}mg
+                    </p>
+                  </div>
+                )}
+                {product.nutriments.iron_100g !== undefined && product.nutriments.iron_100g > 0 && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <p className="text-xs text-blue-600">Järn</p>
+                    <p className="font-semibold">
+                      {(product.nutriments.iron_100g * 1000).toFixed(1)}mg
+                    </p>
+                  </div>
+                )}
+                {product.nutriments.vitamin_c_100g !== undefined && product.nutriments.vitamin_c_100g > 0 && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <p className="text-xs text-blue-600">Vitamin C</p>
+                    <p className="font-semibold">
+                      {(product.nutriments.vitamin_c_100g * 1000).toFixed(1)}mg
+                    </p>
+                  </div>
+                )}
+                {product.nutriments.vitamin_d_100g !== undefined && product.nutriments.vitamin_d_100g > 0 && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <p className="text-xs text-blue-600">Vitamin D</p>
+                    <p className="font-semibold">
+                      {(product.nutriments.vitamin_d_100g * 1000000).toFixed(1)}µg
                     </p>
                   </div>
                 )}
               </div>
             ) : (
               <p className="text-sm text-gray-600">Näringsdata ej tillgänglig</p>
+            )}
+
+            {/* Swedish Nutrition Info */}
+            {product.swedish_nutrition && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-xs text-blue-700 font-medium mb-1">
+                  Baserat på: {product.swedish_nutrition.foodName}
+                </p>
+                <p className="text-xs text-blue-600">
+                  Källa: Livsmedelsverkets livsmedelsdatabas
+                </p>
+              </div>
             )}
           </TabsContent>
 
